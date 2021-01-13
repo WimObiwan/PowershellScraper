@@ -62,16 +62,26 @@ namespace Scraper
                 await page.WaitForNavigationAsync();
 
                 // Get credits
-                var creditField = await page.WaitForSelectorAsync(
-                    "body > div:nth-child(1) > div:nth-child(3) > div > div > main > div > section > div > section > section.MvSection.balanceItemSection > div > div > div:nth-child(2) > strong");
-                var creditText = await creditField.EvaluateFunctionAsync<string>("e => e.innerText");
-                var creditMatch = Regex.Match(creditText, @"^[^\d]*(\d+)[,\.](\d+)$");
                 decimal credits;
-                if (creditMatch.Success) {
-                    creditText = creditMatch.Groups[1].Value + CultureInfo.InvariantCulture.NumberFormat.NumberDecimalSeparator + (creditMatch.Groups[2].Value ?? "0");
-                    credits = decimal.Parse(creditText, CultureInfo.InvariantCulture.NumberFormat);
-                } else {
-                    throw new Exception($"Credits not found ({creditText})");
+                try {
+                    var creditField = await page.WaitForSelectorAsync(
+                        "body > div:nth-child(1) > div:nth-child(3) > div > div > main > div > section > div > section > section.MvSection.balanceItemSection > div > div > div:nth-child(2) > strong");
+                    var creditText = await creditField.EvaluateFunctionAsync<string>("e => e.innerText");
+                    var creditMatch = Regex.Match(creditText, @"^[^\d]*(\d+)[,\.](\d+)$");
+                    if (creditMatch.Success) {
+                        creditText = creditMatch.Groups[1].Value + CultureInfo.InvariantCulture.NumberFormat.NumberDecimalSeparator + (creditMatch.Groups[2].Value ?? "0");
+                        credits = decimal.Parse(creditText, CultureInfo.InvariantCulture.NumberFormat);
+                    } else {
+                        throw new Exception($"Credits not found ({creditText})");
+                    }
+                } catch (PuppeteerSharp.WaitTaskTimeoutException) {
+                    var creditField = await page.WaitForSelectorAsync(
+                        "body > div:nth-child(1) > div:nth-child(3) > div > div > main > div > section > div > section > section");
+                    var creditText = await creditField.EvaluateFunctionAsync<string>("e => e.innerText");
+                    if (creditText.Contains("Geen\nbelwaarde"))
+                        credits = 0m;
+                    else
+                        throw new Exception($"Credits not found (No credits left?)");
                 }
 
                 // Get points
